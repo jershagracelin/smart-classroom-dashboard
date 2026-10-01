@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Classroom Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+    <h1>Smart Classroom Dashboard</h1>
+
+    <div id="alertBanner" class="alert-banner" style="display:none;"></div>
+
+    <div class="cards">
+        <div class="card">
+            <h2>Attention</h2>
+            <p id="attention">{{ data.attention_pct }}%</p>
+        </div>
+        <div class="card">
+            <h2>Students Present</h2>
+            <p id="students">{{ data.students_present }}</p>
+        </div>
+        <div class="card">
+            <h2>Empty Seats</h2>
+            <p id="seats">{{ data.empty_seats }}</p>
+        </div>
+        <div class="card">
+            <h2>Noise Level</h2>
+            <p id="noise">{{ data.noise_level }}</p>
+        </div>
+        <div class="card">
+            <h2>Speaking Time</h2>
+            <p id="speaking">{{ data.speaking_time_min }} min</p>
+        </div>
+        <div class="card">
+            <h2>Engagement Score</h2>
+            <p id="engagement">{{ data.engagement_score }}</p>
+        </div>
+    </div>
+
+    <div class="charts">
+        <div class="chart-box">
+            <canvas id="attentionChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <canvas id="metricsChart"></canvas>
+        </div>
+    </div>
+
+    <script id="chart-data" type="application/json">
+    {
+        "attention_pct": {{ data.attention_pct }},
+        "students_present": {{ data.students_present }},
+        "empty_seats": {{ data.empty_seats }},
+        "speaking_time_min": {{ data.speaking_time_min }}
+    }
+    </script>
+
+    <script>
+        const initialData = JSON.parse(document.getElementById('chart-data').textContent);
+
+        const attentionCtx = document.getElementById('attentionChart').getContext('2d');
+        const attentionChart = new Chart(attentionCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Attentive', 'Not Attentive'],
+                datasets: [{
+                    data: [initialData.attention_pct, 100 - initialData.attention_pct],
+                    backgroundColor: ['#4CAF50', '#E74C3C']
+                }]
+            },
+            options: {
+                plugins: { title: { display: true, text: 'Attention Breakdown' } }
+            }
+        });
+
+        const metricsCtx = document.getElementById('metricsChart').getContext('2d');
+        const metricsChart = new Chart(metricsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Attention %', 'Students', 'Empty Seats', 'Speaking Min'],
+                datasets: [{
+                    label: 'Current Session',
+                    data: [initialData.attention_pct, initialData.students_present, initialData.empty_seats, initialData.speaking_time_min],
+                    backgroundColor: ['#3498DB', '#9B59B6', '#F39C12', '#1ABC9C']
+                }]
+            },
+            options: {
+                plugins: { title: { display: true, text: 'Session Metrics' } }
+            }
+        });
+
+        function updateAlertBanner(alertLevel, alertMessage) {
+            const banner = document.getElementById('alertBanner');
+            if (alertLevel === 'normal') {
+                banner.style.display = 'none';
+            } else {
+                banner.style.display = 'block';
+                banner.textContent = alertMessage;
+                banner.className = 'alert-banner ' + alertLevel;
+            }
+        }
+
+        setInterval(() => {
+            fetch('/api/data')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('attention').innerText = data.attention_pct + '%';
+                    document.getElementById('students').innerText = data.students_present;
+                    document.getElementById('seats').innerText = data.empty_seats;
+                    document.getElementById('noise').innerText = data.noise_level;
+                    document.getElementById('speaking').innerText = data.speaking_time_min + ' min';
+                    document.getElementById('engagement').innerText = data.engagement_score;
+
+                    attentionChart.data.datasets[0].data = [data.attention_pct, 100 - data.attention_pct];
+                    attentionChart.update();
+
+                    metricsChart.data.datasets[0].data = [data.attention_pct, data.students_present, data.empty_seats, data.speaking_time_min];
+                    metricsChart.update();
+
+                    updateAlertBanner(data.alert_level, data.alert_message);
+                });
+        }, 3000);
+    </script>
+</body>
+</html>
